@@ -50,5 +50,5 @@ It's A Spring Boot Web APP: http://172.19.69.118:9988
 目标站点开启了 jolokia 端点的未授权访问,路径为：http://172.19.69.118:9988/jolokia/list
 目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：http://172.19.69.118:9988/jolokia/list
 ```
-##### 鸣谢
-[Tide_nuoyan](https://www.jianshu.com/u/58a5f9e596a7)
+### 鸣谢
+##### [Tide_nuoyan](https://www.jianshu.com/u/58a5f9e596a7)
