@@ -20,6 +20,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     单目标扫描
   -s SURL, --surl SURL  单目标扫描(跳过指纹)
+  -c CURL, --curl CURL  C段扫描(HTTP_80)
   -f FILE, --file FILE  从文件加载目标
 ```
 ```
