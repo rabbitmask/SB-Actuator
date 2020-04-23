@@ -88,11 +88,14 @@ def sb1_Actuator(url):
     key=0
     for i in pathlist:
         url_tar = url+i
-        r = requests.get(url_tar, headers=headers, verify=False)
-        if r.status_code==200:
-            print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-            saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-            key=1
+        try:
+            r = requests.get(url_tar, headers=headers, verify=False)
+            if r.status_code==200:
+                print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+                saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+                key=1
+        except:
+            pass
     return key
 
 
@@ -100,10 +103,13 @@ def sb1_Actuator(url):
 def sb2_Actuator(url):
     for i in pathlist:
         url_tar = url+'/actuator'+i
-        r = requests.get(url_tar, headers=headers, verify=False)
-        if r.status_code==200:
-            print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-            saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/', ''), url_tar))
+        try:
+            r = requests.get(url_tar, headers=headers, verify=False)
+            if r.status_code==200:
+                print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+                saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/', ''), url_tar))
+        except:
+            pass
 
 
 #大多数Actuator仅支持GET请求并仅显示敏感的配置数据,如果使用了Jolokia端点，可能会产生XXE、甚至是RCE安全问题。
@@ -113,13 +119,16 @@ def sb_Actuator(url):
         sb2_Actuator(url)
 
     url_tar = url + '/jolokia/list'
-    r = requests.get(url_tar, headers=headers, verify=False)
-    if r.status_code==200:
-        print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-        saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-        if 'reloadByURL'in r.text:
-            print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
-            saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+    try:
+        r = requests.get(url_tar, headers=headers, verify=False)
+        if r.status_code==200:
+            print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+            if 'reloadByURL'in r.text:
+                print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+                saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+    except:
+        pass
 
 
 def cscan(curl):
@@ -127,6 +136,7 @@ def cscan(curl):
         curls=[]
         for i in range(1, 255):
             curls.append('http://' + str(curl)+'.'+str(i))
+            # curls.append('https://' + str(curl) + '.' + str(i))
         poolmana(curls)
     else:
         print("C段格式输入有误，锤你昂w(ﾟДﾟ)w")
