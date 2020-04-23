@@ -88,14 +88,11 @@ def sb1_Actuator(url):
     key=0
     for i in pathlist:
         url_tar = url+i
-        try:
-            r = requests.get(url_tar, headers=headers, verify=False)
-            if r.status_code==200:
-                print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-                saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-                key=1
-        except:
-            pass
+        r = requests.get(url_tar, headers=headers, verify=False)
+        if r.status_code==200:
+            print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+            saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+            key=1
     return key
 
 
@@ -103,23 +100,19 @@ def sb1_Actuator(url):
 def sb2_Actuator(url):
     for i in pathlist:
         url_tar = url+'/actuator'+i
-        try:
-            r = requests.get(url_tar, headers=headers, verify=False)
-            if r.status_code==200:
-                print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
-                saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/', ''), url_tar))
-        except:
-            pass
+        r = requests.get(url_tar, headers=headers, verify=False)
+        if r.status_code==200:
+            print("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/',''),url_tar))
+            saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/', ''), url_tar))
 
 
 #大多数Actuator仅支持GET请求并仅显示敏感的配置数据,如果使用了Jolokia端点，可能会产生XXE、甚至是RCE安全问题。
 #通过查看/jolokia/list 中存在的 Mbeans，是否存在logback 库提供的reloadByURL方法来进行判断。
 def sb_Actuator(url):
-    if sb1_Actuator(url)==0:
-        sb2_Actuator(url)
-
-    url_tar = url + '/jolokia/list'
     try:
+        if sb1_Actuator(url)==0:
+            sb2_Actuator(url)
+        url_tar = url + '/jolokia/list'
         r = requests.get(url_tar, headers=headers, verify=False)
         if r.status_code==200:
             print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
