@@ -42,7 +42,7 @@ python SB-Actuator.py -u http://172.19.69.118:9988
  /        \ |    |   \ /_____/ /    |    \  \___|  | |  |  // __ \|  | (  <_> )  | \/
 /_______  / |______  /         \____|__  /\___  >__| |____/(____  /__|  \____/|__|
         \/         \/                  \/     \/                \/
-                                                                      By RabbitMask
+                                                                      By RabbitMask | V 1.1
 
 It's A Spring Boot Web APP: http://172.19.69.118:9988
 目标站点开启了 autoconfig 端点的未授权访问,路径为：http://172.19.69.118:9988/actuator/autoconfig
