@@ -14,6 +14,7 @@ import re
 import requests
 from multiprocessing import Pool, Manager
 from concurrent.futures import ThreadPoolExecutor
+import ipaddress
 
 '''
 是懒惰让我们相遇在此~
@@ -33,7 +34,7 @@ banner=r'''
  /        \ |    |   \ /_____/ /    |    \  \___|  | |  |  // __ \|  | (  <_> )  | \/
 /_______  / |______  /         \____|__  /\___  >__| |____/(____  /__|  \____/|__|   
         \/         \/                  \/     \/                \/                   
-                                                                      By RabbitMask
+                                                                      By RabbitMask | V 1.1
 '''
 
 requests.packages.urllib3.disable_warnings()
@@ -48,7 +49,7 @@ executor = ThreadPoolExecutor()
 # Spring Boot < 1.5 默认未授权访问所有端点
 # Spring Boot >= 1.5 默认只允许访问/health和/info端点，但是此安全性通常被应用程序开发人员禁用
 # 另外考虑到人为关闭默认端点开启非默认端点的情况，综上所述，此处采用暴力模式配合异步并发（子进程中嵌套异步子线程）解决。
-pathlist=['/autoconfig','/beans','/env','/configprops','/dump','/health','/info','/mappings','/metrics','/shutdown','/trace',]
+pathlist=['/autoconfig','/beans','/configprops','/dump','/health','/info','/mappings','/metrics','/trace',]
 
 def getinfo(filepath):
     fr = open(filepath, 'r')
@@ -83,9 +84,24 @@ def isSB(ip,q):
     sbcheck(ip)
     q.put(ip)
 
+#Spring Boot 1.x版本存在环境属性覆盖和XStream反序列化漏洞
+def Envheck(url):
+    url_tar = url + '/env'
+    r = requests.get(url_tar, headers=headers, verify=False)
+    if r.status_code == 200:
+        print("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
+        saveinfo("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
+        if 'spring.cloud.bootstrap.location' in r.text:
+            print("目标站点开启了 env 端点且spring.cloud.bootstrap.location属性开启,可进行环境属性覆盖RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 env 端点且spring.cloud.bootstrap.location属性开启,可进行环境属性覆盖RCE测试,路径为：{}".format(url_tar))
+        if 'eureka.client.serviceUrl.defaultZone' in r.text:
+            print("目标站点开启了 env 端点且eureka.client.serviceUrl.defaultZone属性开启,可进行XStream反序列化RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 env 端点且eureka.client.serviceUrl.defaultZone属性开启,可进行XStream反序列化RCE测试,路径为：{}".format(url_tar))
+
 #Spring Boot 1.x版本端点在根URL下注册。
 def sb1_Actuator(url):
     key=0
+    Envheck(url)
     for i in pathlist:
         url_tar = url+i
         r = requests.get(url_tar, headers=headers, verify=False)
@@ -95,9 +111,24 @@ def sb1_Actuator(url):
             key=1
     return key
 
+#Spring Boot 2.x版本存在H2配置不当导致的RCE
+def H2check(url):
+    url_tar = url + '/actuator/env'
+    r = requests.get(url_tar, headers=headers, verify=False)
+    if r.status_code == 200:
+        print("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
+        saveinfo("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
+        headers["Cache-Control"]="max-age=0"
+        rr = requests.post(url+'/actuator/restart', headers=headers, verify=False)
+        if rr.status_code == 200:
+            print("目标站点开启了 env 端点且支持restart端点访问,可进行H2 RCE测试,路径为：{}".format(url+'/actuator/restart'))
+            saveinfo("目标站点开启了 env 端点且支持restart端点访问,可进行H2 RCE测试,路径为：{}".format(url+'/actuator/restart'))
+
+
 
 #Spring Boot 2.x版本端点移动到/actuator/路径。
 def sb2_Actuator(url):
+    H2check(url)
     for i in pathlist:
         url_tar = url+'/actuator'+i
         r = requests.get(url_tar, headers=headers, verify=False)
@@ -108,31 +139,43 @@ def sb2_Actuator(url):
 
 #大多数Actuator仅支持GET请求并仅显示敏感的配置数据,如果使用了Jolokia端点，可能会产生XXE、甚至是RCE安全问题。
 #通过查看/jolokia/list 中存在的 Mbeans，是否存在logback 库提供的reloadByURL方法来进行判断。
+def Jolokiacheck(url):
+    url_tar = url + '/jolokia/list'
+    r = requests.get(url_tar, headers=headers, verify=False)
+    if r.status_code == 200:
+        print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+        saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+        if 'reloadByURL' in r.text:
+            print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+
+
+
 def sb_Actuator(url):
     try:
         if sb1_Actuator(url)==0:
             sb2_Actuator(url)
-        url_tar = url + '/jolokia/list'
-        r = requests.get(url_tar, headers=headers, verify=False)
-        if r.status_code==200:
-            print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-            saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-            if 'reloadByURL'in r.text:
-                print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
-                saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+        Jolokiacheck(url)
     except:
         pass
 
+def Cidr_ips(cidr):
+    ips=[]
+    for ip in ipaddress.IPv4Network(cidr):
+        ips.append('%s'%ip)
+    return ips
 
-def cscan(curl):
-    if re.match(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){2}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",curl):
-        curls=[]
-        for i in range(1, 255):
-            curls.append('http://' + str(curl)+'.'+str(i))
-            # curls.append('https://' + str(curl) + '.' + str(i))
+
+def cidrscan(cidr):
+    if re.match(r"^(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\/([1-9]|[1-2]\d|3[0-2])$",cidr):
+        curls = []
+        ips=Cidr_ips(cidr)
+        for i in ips:
+            curls.append('http://'+i)
+            curls.append('https://'+i)
         poolmana(curls)
     else:
-        print("C段格式输入有误，锤你昂w(ﾟДﾟ)w")
+        print("CIDR格式输入有误，锤你昂w(ﾟДﾟ)w")
 
 
 def poolmana(ips):
@@ -156,7 +199,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-u", "--url", dest='url',help="单目标扫描")
     parser.add_argument("-s", "--surl", dest='surl', help="单目标扫描(跳过指纹)")
-    parser.add_argument("-c", "--curl", dest='curl', help="C段扫描(HTTP_80)")
+    parser.add_argument("-c", "--cidr", dest='cidr', help="CIDR扫描(80/443)")
     parser.add_argument("-f", "--file", dest='file', help="从文件加载目标")
 
     args = parser.parse_args()
@@ -172,7 +215,7 @@ if __name__ == '__main__':
             print("目标未使用spring boot或本脚本识别模块不够完善，如为后者欢迎反馈Issue")
     elif args.surl:
         sb_Actuator(args.surl)
-    elif args.curl:
-        cscan(args.curl)
+    elif args.cidr:
+        cidrscan(args.cidr)
     elif args.file:
         run(args.file)
