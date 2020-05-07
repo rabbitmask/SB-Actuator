@@ -4,8 +4,8 @@ Spring Boot Actuator未授权访问【XXE、RCE】单/多目标检测
 ```
 V 1.1更新日志
 增加针对env端点的深度检测：
-    Spring Boot 1.x版本存在环境属性覆盖和XStream反序列化漏洞
-    Spring Boot 2.x版本存在H2配置不当导致的RCE
+    Spring Boot 1.x版本环境属性覆盖和XStream反序列化导致的RCE
+    Spring Boot 2.x版本H2配置不当导致的RCE
 C段查询修改为基于CIDR查询：
     提供了格式判定检测，您需要正确输入CIDR格式
     如：192.168.1.0/24  默认探测开启80/443端口
