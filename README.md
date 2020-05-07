@@ -5,22 +5,21 @@ Spring Boot Actuator未授权访问【XXE、RCE】单/多目标检测
 python SB-Actuator.py -h
 ```
 ```
-
   ___________________             _____          __                __
  /   _____/\______   \           /  _  \   _____/  |_ __ _______ _/  |_  ___________
  \_____  \  |    |  _/  ______  /  /_\  \_/ ___\   __\  |  \__  \\   __\/  _ \_  __ \
  /        \ |    |   \ /_____/ /    |    \  \___|  | |  |  // __ \|  | (  <_> )  | \/
 /_______  / |______  /         \____|__  /\___  >__| |____/(____  /__|  \____/|__|
         \/         \/                  \/     \/                \/
-                                                                      By RabbitMask
+                                                                      By RabbitMask | V 1.1
 
-usage: SB-Actuator.py [-h] [-u URL] [-s SURL] [-f FILE]
+usage: sb.py [-h] [-u URL] [-s SURL] [-c CIDR] [-f FILE]
 
 optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     单目标扫描
   -s SURL, --surl SURL  单目标扫描(跳过指纹)
-  -c CURL, --curl CURL  C段扫描(HTTP_80)
+  -c CIDR, --cidr CIDR  CIDR扫描(80/443)
   -f FILE, --file FILE  从文件加载目标
 ```
 ```
