@@ -34,7 +34,7 @@ banner=r'''
  /        \ |    |   \ /_____/ /    |    \  \___|  | |  |  // __ \|  | (  <_> )  | \/
 /_______  / |______  /         \____|__  /\___  >__| |____/(____  /__|  \____/|__|   
         \/         \/                  \/     \/                \/                   
-                                                                      By RabbitMask | V 1.1
+                                                                      By RabbitMask | V 1.2
 '''
 
 requests.packages.urllib3.disable_warnings()
@@ -84,8 +84,25 @@ def isSB(ip,q):
     sbcheck(ip)
     q.put(ip)
 
-#Spring Boot 1.x版本存在环境属性覆盖和XStream反序列化漏洞
-def Envheck(url):
+
+#大多数Actuator仅支持GET请求并仅显示敏感的配置数据,如果使用了Jolokia端点，可能会产生XXE、甚至是RCE安全问题。
+#通过查看/jolokia/list 中存在的 Mbeans，是否存在logback 库提供的reloadByURL方法来进行判断。
+def Jolokiacheck(url):
+    url_tar = url + '/jolokia/list'
+    r = requests.get(url_tar, headers=headers, verify=False)
+    if r.status_code == 200:
+        print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+        saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
+        if 'reloadByURL' in r.text:
+            print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
+        if 'createJNDIRealm' in r.text:
+            print("目标站点开启了 jolokia 端点且存在createJNDIRealm方法,可进行JNDI注入RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 jolokia 端点且存在createJNDIRealm方法,可进行JNDI注入RCE测试,路径为：{}".format(url_tar))
+
+
+#Spring Boot env端点存在环境属性覆盖和XStream反序列化漏洞
+def Envcheck_1(url):
     url_tar = url + '/env'
     r = requests.get(url_tar, headers=headers, verify=False)
     if r.status_code == 200:
@@ -101,7 +118,8 @@ def Envheck(url):
 #Spring Boot 1.x版本端点在根URL下注册。
 def sb1_Actuator(url):
     key=0
-    Envheck(url)
+    Envcheck_1(url)
+    Jolokiacheck(url)
     for i in pathlist:
         url_tar = url+i
         r = requests.get(url_tar, headers=headers, verify=False)
@@ -111,13 +129,21 @@ def sb1_Actuator(url):
             key=1
     return key
 
-#Spring Boot 2.x版本存在H2配置不当导致的RCE
-def H2check(url):
+#Spring Boot 2.x版本存在H2配置不当导致的RCE，目前非正则判断，测试阶段
+#另外开始我认为环境属性覆盖和XStream反序列化漏洞只有1.*版本存在
+#后来证实2.*也是存在的，data需要以json格式发送，这个我后边会给出具体exp
+def Envcheck_2(url):
     url_tar = url + '/actuator/env'
     r = requests.get(url_tar, headers=headers, verify=False)
     if r.status_code == 200:
         print("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
         saveinfo("目标站点开启了 env 端点的未授权访问,路径为：{}".format(url_tar))
+        if 'spring.cloud.bootstrap.location' in r.text:
+            print("目标站点开启了 env 端点且spring.cloud.bootstrap.location属性开启,可进行环境属性覆盖RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 env 端点且spring.cloud.bootstrap.location属性开启,可进行环境属性覆盖RCE测试,路径为：{}".format(url_tar))
+        if 'eureka.client.serviceUrl.defaultZone' in r.text:
+            print("目标站点开启了 env 端点且eureka.client.serviceUrl.defaultZone属性开启,可进行XStream反序列化RCE测试,路径为：{}".format(url_tar))
+            saveinfo("目标站点开启了 env 端点且eureka.client.serviceUrl.defaultZone属性开启,可进行XStream反序列化RCE测试,路径为：{}".format(url_tar))
         headers["Cache-Control"]="max-age=0"
         rr = requests.post(url+'/actuator/restart', headers=headers, verify=False)
         if rr.status_code == 200:
@@ -128,7 +154,8 @@ def H2check(url):
 
 #Spring Boot 2.x版本端点移动到/actuator/路径。
 def sb2_Actuator(url):
-    H2check(url)
+    Envcheck_2(url)
+    Jolokiacheck(url+'/actuator')
     for i in pathlist:
         url_tar = url+'/actuator'+i
         r = requests.get(url_tar, headers=headers, verify=False)
@@ -137,25 +164,12 @@ def sb2_Actuator(url):
             saveinfo("目标站点开启了 {} 端点的未授权访问,路径为：{}".format(i.replace('/', ''), url_tar))
 
 
-#大多数Actuator仅支持GET请求并仅显示敏感的配置数据,如果使用了Jolokia端点，可能会产生XXE、甚至是RCE安全问题。
-#通过查看/jolokia/list 中存在的 Mbeans，是否存在logback 库提供的reloadByURL方法来进行判断。
-def Jolokiacheck(url):
-    url_tar = url + '/jolokia/list'
-    r = requests.get(url_tar, headers=headers, verify=False)
-    if r.status_code == 200:
-        print("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-        saveinfo("目标站点开启了 jolokia 端点的未授权访问,路径为：{}".format(url_tar))
-        if 'reloadByURL' in r.text:
-            print("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
-            saveinfo("目标站点开启了 jolokia 端点且存在reloadByURL方法,可进行XXE/RCE测试,路径为：{}".format(url_tar))
-
 
 
 def sb_Actuator(url):
     try:
         if sb1_Actuator(url)==0:
             sb2_Actuator(url)
-        Jolokiacheck(url)
     except:
         pass
 
